@@ -34,11 +34,6 @@ func getChannelSchema(channelType string, s map[string]*schema.Schema) map[strin
             Type:     schema.TypeString,
             Required: true,
         },
-        "position": {
-            Type:     schema.TypeInt,
-            Default:  1,
-            Optional: true,
-        },
     }
 
     if channelType != "category" {
@@ -148,7 +143,6 @@ func resourceChannelCreate(ctx context.Context, d *schema.ResourceData, m interf
         UserLimit: userlimit,
         ParentID:  parentId,
         NSFW:      nsfw,
-        Position:  d.Get("position").(int),
     })
 
     if err != nil {
@@ -194,7 +188,6 @@ func resourceChannelRead(ctx context.Context, d *schema.ResourceData, m interfac
 
     d.Set("type", channelType)
     d.Set("name", channel.Name)
-    d.Set("position", channel.Position)
 
     if channelType == "text" {
         d.Set("topic", channel.Topic)
@@ -239,9 +232,6 @@ func resourceChannelUpdate(ctx context.Context, d *schema.ResourceData, m interf
 
     if d.HasChange("name") {
         builder.SetName(d.Get("name").(string))
-    }
-    if d.HasChange("position") {
-        builder.SetPosition(d.Get("position").(int))
     }
 
     if channelType == "text" {

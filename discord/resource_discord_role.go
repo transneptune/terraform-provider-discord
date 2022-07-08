@@ -1,7 +1,6 @@
 package discord
 
 import (
-    "fmt"
     "github.com/andersfylling/disgord"
     "github.com/hashicorp/terraform-plugin-sdk/v2/diag"
     "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -52,22 +51,6 @@ func resourceDiscordRole() *schema.Resource {
                 Default:  false,
                 ForceNew: false,
             },
-            "position": {
-                Type:     schema.TypeInt,
-                Optional: true,
-                Default:  1,
-                ForceNew: false,
-
-                ValidateFunc: func(val interface{}, key string) (warns []string, errors []error) {
-                    v := val.(int)
-
-                    if v < 0 {
-                        errors = append(errors, fmt.Errorf("position must be greater than 0, got: %d", v))
-                    }
-
-                    return
-                },
-            },
             "managed": {
                 Type:     schema.TypeBool,
                 Computed: true,
@@ -109,29 +92,6 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, m interface
         return diag.Errorf("Failed to create role for %s: %s", serverId.String(), err.Error())
     }
 
-    if newPosition, ok := d.GetOk("position"); ok {
-        var oldRole *disgord.Role
-        for _, r := range server.Roles {
-            if r.Position == newPosition.(int) {
-                oldRole = r
-                break
-            }
-        }
-        if oldRole == nil {
-            return diag.Errorf("New Role position is out of bounds: %d", newPosition.(int))
-        }
-
-        _, err := client.UpdateGuildRolePositions(ctx, serverId, []disgord.UpdateGuildRolePositionsParams{
-            {ID: oldRole.ID, Position: role.Position},
-            {ID: role.ID, Position: newPosition.(int)},
-        })
-        if err != nil {
-            diags = append(diags, diag.Errorf("Failed to re-order roles: %s", err.Error())...)
-        } else {
-            d.Set("position", newPosition)
-        }
-    }
-
     d.SetId(role.ID.String())
     d.Set("server_id", server.ID.String())
     d.Set("managed", role.Managed)
@@ -155,7 +115,6 @@ func resourceRoleRead(ctx context.Context, d *schema.ResourceData, m interface{}
     }
 
     d.Set("name", role.Name)
-    d.Set("position", role.Position)
     d.Set("color", role.Color)
     d.Set("hoist", role.Hoist)
     d.Set("mentionable", role.Mentionable)
@@ -181,30 +140,6 @@ func resourceRoleUpdate(ctx context.Context, d *schema.ResourceData, m interface
         return diag.Errorf("Failed to fetch role %s: %s", d.Id(), err.Error())
     }
 
-    if d.HasChange("position") {
-        _, newPosition := d.GetChange("position")
-        var oldRole *disgord.Role
-        for _, r := range server.Roles {
-            if r.Position == newPosition.(int) {
-                oldRole = r
-                break
-            }
-        }
-        if oldRole == nil {
-            return diag.Errorf("New Role position is out of bounds: %d", newPosition.(int))
-        }
-
-        _, err := client.UpdateGuildRolePositions(ctx, serverId, []disgord.UpdateGuildRolePositionsParams{
-            {ID: oldRole.ID, Position: role.Position},
-            {ID: roleId, Position: newPosition.(int)},
-        })
-        if err != nil {
-            diags = append(diags, diag.Errorf("Failed to re-order roles: %s", err.Error())...)
-        } else {
-            d.Set("position", newPosition)
-        }
-    }
-
     builder := client.UpdateGuildRole(ctx, serverId, roleId)
 
     builder.SetName(d.Get("name").(string))
@@ -221,7 +156,6 @@ func resourceRoleUpdate(ctx context.Context, d *schema.ResourceData, m interface
     }
 
     d.Set("name", role.Name)
-    d.Set("position", role.Position)
     d.Set("color", role.Color)
     d.Set("hoist", role.Hoist)
     d.Set("mentionable", role.Mentionable)
