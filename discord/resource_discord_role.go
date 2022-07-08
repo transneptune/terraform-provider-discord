@@ -81,15 +81,35 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, m interface
         return diag.Errorf("Server does not exist with that ID: %s", serverId)
     }
 
+    permissions := uint64(d.Get("permissions").(int))
     role, err := client.CreateGuildRole(ctx, serverId, &disgord.CreateGuildRoleParams{
         Name:        d.Get("name").(string),
-        Permissions: uint64(d.Get("permissions").(int)),
+        Permissions: permissions,
         Color:       uint(d.Get("color").(int)),
         Hoist:       d.Get("hoist").(bool),
         Mentionable: d.Get("mentionable").(bool),
     })
     if err != nil {
         return diag.Errorf("Failed to create role for %s: %s", serverId.String(), err.Error())
+    }
+
+    // If the caller sets `permissions = 0` intending no permissions, then disgord
+    // will instead send a create with no permissions field, leading to the role having
+    // default permissions. In this case, we need to call UpdateGuildRole to set the
+    // intended permissions.
+    if role.Permissions != permissions {
+        builder := client.UpdateGuildRole(ctx, serverId, role.ID)
+        builder.SetPermissions(disgord.PermissionBit(d.Get("permissions").(int)))
+
+        role, err = builder.Execute()
+        if err != nil {
+            deleteErr := client.DeleteGuildRole(ctx, serverId, role.ID)
+            if deleteErr != nil {
+                return diag.Errorf("Failed to set permissions on new role %s: %s, and failed to clean up the orphaned role: %s", d.Id(), err.Error(), deleteErr.Error())
+            }
+
+            return diag.Errorf("Failed to set permissions on new role %s: %s", d.Id(), err.Error())
+        }
     }
 
     d.SetId(role.ID.String())
