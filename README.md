@@ -38,6 +38,7 @@ goreleaser release --skip-publish
 * discord_server
 * discord_text_channel
 * discord_voice_channel
+* discord_news_channel
 
 ## Data
 
