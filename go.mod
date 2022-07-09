@@ -1,6 +1,6 @@
 module github.com/aequasi/discord-terraform
 
-go 1.14
+go 1.18
 
 require (
 	github.com/andersfylling/disgord v0.18.1-0.20200822124930-07799219ff00
